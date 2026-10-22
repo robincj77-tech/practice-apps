@@ -1,0 +1,127 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hebrew Talk</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#0f1f3a;color:#eef;max-width:600px;margin:auto}
+header{padding:14px 16px;background:#16315c;display:flex;justify-content:space-between;align-items:center}
+h1{font-size:20px;margin:0}h2{font-size:18px;margin:8px 0}
+.wrap{padding:12px 14px}.card{background:#1b2f55;border-radius:14px;padding:14px;margin:10px 0}
+button{font-size:16px;border:0;border-radius:10px;padding:12px 14px;margin:4px 2px;background:#3b6fd8;color:#fff}
+button.sec{background:#2c4470}button.big{width:100%;font-size:18px;padding:16px}
+.he{font-size:34px;direction:rtl;text-align:center;font-family:"Noto Sans Hebrew",Arial,sans-serif}
+.tr{text-align:center;color:#ffd77a;font-size:18px}.en{text-align:center;color:#bcd;font-size:16px}
+.les{display:flex;justify-content:space-between;align-items:center}.done{color:#6f6}
+.tip{background:#5a3b10;border-radius:10px;padding:10px;font-size:14px;margin:8px 0}
+.score{font-size:28px;text-align:center}.w{padding:2px 5px;border-radius:5px;margin:2px}.ok{background:#1f6b3a}.bad{background:#8a2430}
+#status{text-align:center;color:#9cf;min-height:22px}.row{display:flex;flex-wrap:wrap;justify-content:center}
+select{font-size:16px;padding:6px;border-radius:8px}.hide{display:none}
+</style></head><body>
+<header><h1>🇮🇱 Hebrew Talk</h1><span>Speaker: <select id="gender"><option value="m">Male</option><option value="f">Female</option></select></span></header>
+<div class="wrap">
+<div id="voiceTip" class="tip hide"></div><div id="recTip" class="tip hide"></div>
+<div id="home"><div class="card" style="font-size:14px">Listen, answer out loud, then hear the correct answer — like Pimsleur. Tap a lesson to start.</div><div id="list"></div>
+<button class="sec" onclick="if(confirm('Reset all progress?')){localStorage.removeItem('htProg');renderList()}">Reset progress</button></div>
+<div id="lesson" class="hide">
+<div class="les"><button class="sec" onclick="stopAll();show('home')">← Lessons</button><span id="pos"></span></div>
+<h2 id="ltitle"></h2>
+<div class="card"><div class="en" id="en"></div><div class="he" id="he"></div><div class="tr" id="tr"></div></div>
+<div id="status"></div>
+<div class="row"><button onclick="playHe(1)">🔊 Play</button><button onclick="playHe(0.6)">🐢 Slower</button><button onclick="tryIt()">🎤 Try it</button></div>
+<div class="row"><button class="sec" onclick="go(-1)">◀ Prev</button><button class="sec" onclick="go(1)">Next ▶</button></div>
+<button class="big" id="hf" onclick="toggleHF()">▶ Hands-free lesson</button>
+<div id="result" class="card hide"></div>
+</div></div>
+<script>
+// Phrases: [english, hebrew(m), translit(m), hebrew(f), translit(f), note]
+const L=[
+{t:"1. Greetings",p:[
+["Hello / peace","שלום","shalom"],["Good morning","בוקר טוב","boker tov"],["Good evening","ערב טוב","erev tov"],["Good night","לילה טוב","layla tov"],
+["What's up? / How's it going?","מה נשמע?","ma nishma?"],["Everything's fine","הכול בסדר","hakol beseder"],["Thank you","תודה","toda"],["Thank you very much","תודה רבה","toda raba"],
+["Please / You're welcome","בבקשה","bevakasha"],["Excuse me / Sorry","סליחה","slicha"],["Yes","כן","ken"],["No","לא","lo"],["See you / Goodbye","להתראות","lehitra'ot"]]},
+{t:"2. Introductions",p:[
+["My name is Robin","קוראים לי רובין","kor'im li Robin"],["What's your name? (to a man)","איך קוראים לך?","eikh kor'im lekha?"],["What's your name? (to a woman)","איך קוראים לך?","eikh kor'im lakh?"],
+["Nice to meet you","נעים מאוד","na'im me'od"],["I'm from New Zealand","אני מניו זילנד","ani mi-Nyu Ziland"],["Where are you from? (to a man)","מאיפה אתה?","me'eifo ata?"],["Where are you from? (to a woman)","מאיפה את?","me'eifo at?"],
+["I'm a tourist","אני תייר","ani tayar","אני תיירת","ani tayeret"],["I'm learning Hebrew","אני לומד עברית","ani lomed ivrit","אני לומדת עברית","ani lomedet ivrit"],
+["I speak English","אני מדבר אנגלית","ani medaber anglit","אני מדברת אנגלית","ani medaberet anglit"],["I live in New Zealand","אני גר בניו זילנד","ani gar be-Nyu Ziland","אני גרה בניו זילנד","ani gara be-Nyu Ziland"]]},
+{t:"3. Do you understand?",p:[
+["Do you understand Hebrew? (to a man)","אתה מבין עברית?","ata mevin ivrit?"],["Do you understand Hebrew? (to a woman)","את מבינה עברית?","at mevina ivrit?"],
+["I understand","אני מבין","ani mevin","אני מבינה","ani mevina"],["I don't understand","אני לא מבין","ani lo mevin","אני לא מבינה","ani lo mevina"],
+["I understand a little Hebrew","אני מבין קצת עברית","ani mevin ktsat ivrit","אני מבינה קצת עברית","ani mevina ktsat ivrit"],
+["Do you speak English? (to a man)","אתה מדבר אנגלית?","ata medaber anglit?"],["Do you speak English? (to a woman)","את מדברת אנגלית?","at medaberet anglit?"],
+["Slowly, please","לאט, בבקשה","le'at, bevakasha"],["Can you repeat that?","אפשר לחזור על זה?","efshar lachzor al ze?"],["What is this?","מה זה?","ma ze?"],
+["How do you say it in Hebrew?","איך אומרים את זה בעברית?","eikh omrim et ze be'ivrit?"],["Only a little","רק קצת","rak ktsat"]]},
+{t:"4. Café & food",p:[
+["I want a coffee","אני רוצה קפה","ani rotse kafe","אני רוצה קפה","ani rotsa kafe"],["A latte (flat white), please","הפוך, בבקשה","hafukh, bevakasha"],["A glass of water","כוס מים","kos mayim"],
+["Can I have a menu?","אפשר תפריט?","efshar tafrit?"],["How much does it cost?","כמה זה עולה?","kama ze ole?"],["Without sugar","בלי סוכר","bli sukar"],["With milk","עם חלב","im chalav"],
+["Here or to take away?","לשבת או לקחת?","lashevet o lakachat?"],["To take away","לקחת","lakachat"],["Very tasty","טעים מאוד","ta'im me'od"],["The bill, please","החשבון, בבקשה","hacheshbon, bevakasha"],["Bread and hummus","לחם וחומוס","lechem ve-chumus"]]},
+{t:"5. Numbers 1–10",p:[
+["One","אחת","achat"],["Two","שתיים","shtayim"],["Three","שלוש","shalosh"],["Four","ארבע","arba"],["Five","חמש","chamesh"],["Six","שש","shesh"],
+["Seven","שבע","sheva"],["Eight","שמונה","shmone"],["Nine","תשע","tesha"],["Ten","עשר","eser"],["Two coffees, please","שני קפה, בבקשה","shnei kafe, bevakasha"]]},
+{t:"6. Directions",p:[
+["Where is the toilet?","איפה השירותים?","eifo hasherutim?"],["Where is the station?","איפה התחנה?","eifo hatachana?"],["Right (to the right)","ימינה","yamina"],["Left (to the left)","שמאלה","smola"],
+["Straight ahead","ישר","yashar"],["Is it far?","זה רחוק?","ze rachok?"],["It's close","זה קרוב","ze karov"],["Here","פה","po"],["There","שם","sham"],
+["I'm lost","הלכתי לאיבוד","halakhti le'ibud"],["Thanks for the help","תודה על העזרה","toda al ha'ezra"]]},
+{t:"7. Polite phrases",p:[
+["Sorry, I'm late","סליחה, איחרתי","slicha, icharti"],["No problem","אין בעיה","ein be'aya"],["Good luck","בהצלחה","behatslacha"],["Cheers! (To life!)","לחיים!","lechayim!"],
+["Have a good day","יום טוב","yom tov"],["Shabbat shalom","שבת שלום","shabat shalom"],["With pleasure","בכיף","bekef"],["Of course","בטח","betach"],["Excuse me, can you help me? (to a man)","סליחה, אתה יכול לעזור לי?","slicha, ata yakhol la'azor li?"],["Excuse me, can you help me? (to a woman)","סליחה, את יכולה לעזור לי?","slicha, at yekhola la'azor li?"]]}
+];
+// Syllables for back-chaining long single words (Hebrew fragments, spoken end-first)
+const SYL={"להתראות":["אות","תראות","להתראות"],"בבקשה":["קשה","בקשה","בבקשה"],"בהצלחה":["לחה","הצלחה","בהצלחה"],"ימינה":["נה","מינה","ימינה"]};
+const $=id=>document.getElementById(id), S=speechSynthesis;
+let G=localStorage.getItem('htG')||'m'; $('gender').value=G; $('gender').onchange=e=>{G=e.target.value;localStorage.setItem('htG',G);if(cur)render()};
+let prog=()=>JSON.parse(localStorage.getItem('htProg')||'{}'), saveProg=p=>localStorage.setItem('htProg',JSON.stringify(p));
+let heVoice=null,enVoice=null;
+function loadVoices(){const v=S.getVoices();heVoice=v.find(x=>/^(he|iw)/i.test(x.lang))||null;enVoice=v.find(x=>/^en-(NZ|AU|GB)/i.test(x.lang))||v.find(x=>/^en/i.test(x.lang))||null;
+ const t=$('voiceTip'); if(v.length&&!heVoice){t.innerHTML="⚠️ No Hebrew voice found. On Android: Settings → General management → Text-to-speech → Preferred engine: <b>Speech Recognition and Synthesis from Google</b> → ⚙️ → Install voice data → <b>Hebrew</b>. Then restart Chrome.";t.classList.remove('hide')}else t.classList.add('hide')}
+loadVoices(); if('onvoiceschanged' in S)S.onvoiceschanged=loadVoices;
+function say(text,he,rate=1){return new Promise(r=>{if(!window.speechSynthesis)return r();const u=new SpeechSynthesisUtterance(text);u.lang=he?'he-IL':'en-NZ';const v=he?heVoice:enVoice;if(v)u.voice=v;u.rate=rate*(he?0.9:1);u.onend=u.onerror=()=>r();S.speak(u);setTimeout(r,15000)})}
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(!SR){const t=$('recTip');t.textContent="🎙️ Speech recognition isn't available here, so 'Try it' records you and plays it back for comparison.";t.classList.remove('hide')}
+function listen(ms=6000){return new Promise(res=>{if(!SR)return res(null);const r=new SR();r.lang='he-IL';r.maxAlternatives=5;r.interimResults=false;let done=false;
+ const fin=v=>{if(!done){done=true;try{r.stop()}catch(e){}res(v)}};r.onresult=e=>{const a=[...e.results[0]].map(x=>x.transcript);fin(a)};r.onerror=e=>{if(e.error==='not-allowed'){$('recTip').textContent="🎙️ Microphone blocked. Allow mic for this page (open it over https).";$('recTip').classList.remove('hide')}fin([])};r.onend=()=>fin([]);
+ try{r.start()}catch(e){fin([])}setTimeout(()=>fin([]),ms)})}
+async function recordFallback(){try{const st=await navigator.mediaDevices.getUserMedia({audio:true});const mr=new MediaRecorder(st),ch=[];mr.ondataavailable=e=>ch.push(e.data);
+ mr.start();status('🔴 Recording 4 s…');await wait(4000);mr.stop();await new Promise(r=>mr.onstop=r);st.getTracks().forEach(t=>t.stop());
+ const a=new Audio(URL.createObjectURL(new Blob(ch)));status('You:');await new Promise(r=>{a.onended=r;a.play().catch(r)});status('Native:');await playHe(1);status('Compare the two.')}catch(e){status('Mic not available: '+e.message)}}
+// scoring
+const norm=s=>s.replace(/[\u0591-\u05C7]/g,'').replace(/[^\u05D0-\u05EAa-z0-9 ]/gi,' ').replace(/ך/g,'כ').replace(/ם/g,'מ').replace(/ן/g,'נ').replace(/ף/g,'פ').replace(/ץ/g,'צ').replace(/\s+/g,' ').trim().toLowerCase();
+function lev(a,b){const d=Array.from({length:a.length+1},(_,i)=>[i]);for(let j=1;j<=b.length;j++)d[0][j]=j;for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]==b[j-1]?0:1));return d[a.length][b.length]}
+const sim=(a,b)=>!a.length&&!b.length?1:1-lev(a,b)/Math.max(a.length,b.length);
+function score(exp,alts){let best=null;for(const t of alts){const E=norm(exp),T=norm(t),ew=E.split(' '),tw=T.split(' ');
+ const words=ew.map(w=>({w,ok:Math.max(0,...tw.map(x=>sim(w,x)))>=0.7}));const ws=words.filter(x=>x.ok).length/ew.length,cs=sim(E.replace(/ /g,''),T.replace(/ /g,''));
+ const s=Math.round(100*(0.5*ws+0.5*cs));if(!best||s>best.s)best={s,words,heard:t}}return best}
+function tips(he,tr){const t=[];if(/[חכך]/.test(he)&&/ch|kh/.test(tr))t.push("<b>ch/kh (ח, כ)</b>: a rough sound from the back of the throat, like Scottish 'loch' — not 'k' or 'ch' as in 'cheese'.");
+ if(/ר/.test(he))t.push("<b>r (ר)</b>: a soft gargled r at the back of the throat (like French 'r'), not the English r.");
+ if(/ע/.test(he))t.push("<b>ע (ayin)</b>: in modern Israeli speech usually just a light break in the voice — don't add a sound.");
+ t.push("<b>Stress</b>: most Hebrew words stress the <i>last</i> syllable (sha-LOM, to-DA, be-va-ka-SHA).");return t}
+// state
+let cur=null,idx=0,hf=false;
+function P(i){const p=L[cur].p[i];const f=G=='f'&&p[3];return{en:p[0],he:f?p[3]:p[1],tr:f?p[4]:p[2]}}
+function status(t){$('status').textContent=t}
+function show(id){['home','lesson'].forEach(x=>$(x).classList.toggle('hide',x!=id));if(id=='home')renderList()}
+function renderList(){const pr=prog();$('list').innerHTML=L.map((l,i)=>{const d=pr[i]||{};return`<div class="card les" onclick="openL(${i})"><span>${l.t}<br><small>${l.p.length} phrases</small></span><span class="${d.done?'done':''}">${d.done?'✔ Done':d.at?('▶ '+d.at+'/'+l.p.length):''}</span></div>`}).join('')}
+function openL(i){cur=i;idx=Math.min((prog()[i]||{}).at||0,L[i].p.length-1);if(idx>=L[i].p.length-1&&prog()[i]?.done)idx=0;$('ltitle').textContent=L[i].t;show('lesson');render()}
+function render(){const p=P(idx);$('en').textContent=p.en;$('he').textContent=p.he;$('tr').textContent=p.tr;$('pos').textContent=(idx+1)+' / '+L[cur].p.length;$('result').classList.add('hide');status('')}
+function mark(){const pr=prog();pr[cur]=pr[cur]||{};pr[cur].at=Math.max(pr[cur].at||0,idx+1);if(pr[cur].at>=L[cur].p.length)pr[cur].done=true;saveProg(pr)}
+function go(d){idx=Math.max(0,Math.min(L[cur].p.length-1,idx+d));render()}
+function playHe(r){return say(P(idx).he,true,r)}
+function showResult(b,p){const R=$('result');R.classList.remove('hide');if(!b){R.innerHTML='<div class="score">🤔</div><p>I didn\'t catch that. Tap 🎤 to retry, or 🐢 to hear it slower.</p>';return}
+ R.innerHTML=`<div class="score">${b.s}%</div><div class="he" style="font-size:24px">${b.words.map(w=>`<span class="w ${w.ok?'ok':'bad'}">${w.w}</span>`).join(' ')}</div><p>Heard: <span dir="rtl">${b.heard||'—'}</span></p>`+(b.s<90?tips(p.he,p.tr).map(t=>`<div class="tip">${t}</div>`).join(''):'<p>Excellent! 🎉</p>')}
+async function tryIt(){const p=P(idx);if(!SR)return recordFallback();status('🎤 Listening… speak now');const a=await listen();status('');const b=a&&a.length?score(p.he,a):null;showResult(b,p);if(b&&b.s>=70)mark();return b}
+function chain(he){const w=he.replace(/[?,!.]/g,'').split(' ');if(w.length>1){const out=[];for(let i=w.length-1;i>=0;i--)out.push(w.slice(i).join(' '));return out}return SYL[he]||[]}
+function stopAll(){hf=false;S.cancel();$('hf').textContent='▶ Hands-free lesson'}
+async function prompt(i){idx=i;render();const p=P(i);await say(`How would you say: ${p.en}?`);if(!hf)return;
+ if(SR){status('🎤 Your turn…');const a=await listen(6000);if(!hf)return;const b=a&&a.length?score(p.he,a):null;showResult(b,p)}else{status('⏳ Say it out loud…');await wait(4500)}
+ if(!hf)return;status('Answer:');await playHe(1);await wait(1200);await playHe(1);await wait(800)}
+async function toggleHF(){if(hf)return stopAll();hf=true;$('hf').textContent='⏹ Stop';const n=L[cur].p.length;const start=idx;
+ if(start==0)await say(`Lesson ${L[cur].t}. Listen, then answer out loud.`);
+ for(let i=start;i<n&&hf;i++){idx=i;render();const p=P(i);
+  await say(`Here's how to say: ${p.en}.`);if(!hf)break;await playHe(1);await wait(900);await playHe(0.7);if(!hf)break;
+  const c=chain(p.he);if(c.length>1){await say('Listen and repeat, starting from the end.');for(const part of c){if(!hf)break;await say(part,true,0.75);await wait(2200)}}
+  if(!hf)break;await prompt(i);if(!hf)break;
+  // graduated recall of earlier phrases
+  for(const back of [2,5]){if(i-back>=0&&hf&&i%2==0){await say('And do you remember?');await prompt(i-back);idx=i}}
+  idx=i;mark()}
+ if(hf){await say('Well done. That was the end of the lesson.');const pr=prog();pr[cur]={done:true,at:n};saveProg(pr)}stopAll()}
+renderList();
+</script></body></html>
