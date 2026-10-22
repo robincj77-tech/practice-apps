@@ -14,7 +14,7 @@ button.sec{background:#2c4470}button.big{width:100%;font-size:18px;padding:16px}
 .score{font-size:28px;text-align:center}.w{padding:2px 5px;border-radius:5px;margin:2px}.ok{background:#1f6b3a}.bad{background:#8a2430}
 #status{text-align:center;color:#9cf;min-height:22px}.row{display:flex;flex-wrap:wrap;justify-content:center}
 select{font-size:16px;padding:6px;border-radius:8px}.hide{display:none}
-</style></head><body>
+</style></head><body><div style='font-size:11px;opacity:.6;text-align:right'>v1.2</div>
 <header><h1>🇮🇱 Hebrew Talk</h1><span>Speaker: <select id="gender"><option value="m">Male</option><option value="f">Female</option></select></span></header>
 <div class="wrap">
 <div id="voiceTip" class="tip hide"></div><div id="recTip" class="tip hide"></div>
@@ -79,7 +79,7 @@ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 if(!SR){const t=$('recTip');t.textContent="🎙️ Speech recognition isn't available here, so 'Try it' records you and plays it back for comparison.";t.classList.remove('hide')}
 let srLang=localStorage.getItem('srLang')||'he-IL';
 function srTip(m){const t=$('recTip');t.textContent=m;t.classList.remove('hide')}
-function listen(ms=10000,retry=true){return new Promise(res=>{if(!SR)return res(null);try{S.cancel()}catch(e){}
+function listen(ms=10000,retry=true){return new Promise(res=>{if(!SR){srTip('🎙️ This browser has no speech recognition (Samsung Internet does not). Open this page in Google Chrome.');return res(null)}try{S.cancel()}catch(e){}
  const r=new SR();r.lang=srLang;r.maxAlternatives=5;r.interimResults=true;r.continuous=false;let done=false,last=[],err='';
  const fin=v=>{if(done)return;done=true;try{r.stop()}catch(e){}
   if((!v||!v.length)&&retry&&(err==='language-not-supported'||err==='no-speech'&&srLang==='he-IL'&&!localStorage.getItem('srLang'))){srLang=srLang==='he-IL'?'iw-IL':'he-IL';return listen(ms,false).then(x=>{if(x&&x.length)localStorage.setItem('srLang',srLang);res(x)})}
